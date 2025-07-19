@@ -24,14 +24,13 @@
 #include <proto/exec.h>
 #endif
 
-#include <exec/types.h>
 #include <limits.h>
-
 #include <debug.h>
+#include <compat.h>
 #include <phy/phy.h>
 #include <device.h>
-#include <compat.h>
 #include <unimac.h>
+#include <stdint.h>
 #include <bcmgenet-regs.h>
 
 static void bcmgenet_umac_reset(struct GenetUnit *unit)

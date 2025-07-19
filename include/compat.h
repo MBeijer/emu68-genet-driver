@@ -2,7 +2,7 @@
 #ifndef _COMPAT_H
 #define _COMPAT_H
 
-#include <exec/types.h>
+#include <exec/exec.h>
 
 inline ULONG LE32(ULONG x) { return __builtin_bswap32(x); }
 
@@ -71,4 +71,23 @@ static inline void out_le32(volatile ULONG *addr, ULONG val)
 #define clrsetbits(type, addr, clear, set) \
     out_##type((addr), (in_##type(addr) & ~(clear)) | (set))
 
+#endif
+
+#if INCLUDE_VERSION < 45
+/* minimal node -- no type checking possible */
+struct MinNode {
+    struct MinNode *mln_Succ;
+    struct MinNode *mln_Pred;
+};
+
+/*
+ * Minimal List Header - no type checking
+ */
+struct MinList {
+   struct  MinNode *mlh_Head;
+   struct  MinNode *mlh_Tail;
+   struct  MinNode *mlh_TailPred;
+};	/* longword aligned */
+
+#define NewMinList NewList
 #endif

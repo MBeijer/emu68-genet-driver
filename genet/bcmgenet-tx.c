@@ -9,6 +9,7 @@
 #ifdef __INTELLISENSE__
 #include <clib/exec_protos.h>
 #else
+#include <exec/execbase.h>
 #include <proto/exec.h>
 #endif
 

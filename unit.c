@@ -9,14 +9,13 @@
 #include <proto/dos.h>
 #endif
 
-#include <exec/execbase.h>
-#include <exec/types.h>
+#include <compat.h>
 #include <stdarg.h>
 
 #include <debug.h>
 #include <device.h>
 #include <gpio/bcm_gpio.h>
-#include <compat.h>
+
 
 static void SetupMDIO(struct GenetUnit *unit)
 {

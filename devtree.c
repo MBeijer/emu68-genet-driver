@@ -9,9 +9,8 @@
 #include <proto/exec.h>
 #include <proto/devicetree.h>
 #include <proto/utility.h>
+#include <utility/utility.h>
 #endif
-
-#include <exec/types.h>
 
 #include <debug.h>
 #include <device.h>
@@ -19,6 +18,29 @@
 
 static APTR DeviceTreeBase;
 static struct ExecBase *SysBase;
+
+void SPrintNumber(char *buf, unsigned long number)
+{
+    char digits[10];
+    int i = 0;
+
+    if (number == 0) {
+        buf[0] = '0';
+        buf[1] = '\0';
+        return;
+    }
+
+    while (number > 0 && i < 10) {
+        digits[i++] = '0' + (number % 10);
+        number /= 10;
+    }
+
+    while (i > 0) {
+        *buf++ = digits[--i];
+    }
+
+    *buf = '\0';
+}
 
 // Devicetree extras
 static APTR DT_FindByPHandle(APTR key, ULONG phandle)
@@ -155,8 +177,9 @@ int DevTreeParse(struct GenetUnit *unit)
 		return S2ERR_NO_RESOURCES;
 	}
 
-	char alias[16];
-	SNPrintf((STRPTR)alias, sizeof(alias), (CONST_STRPTR) "ethernet%ld", unit->unitNumber);
+	char alias[20];
+	CopyMem("ethernet", alias, 8);
+	SPrintNumber(alias + 8, unit->unitNumber);
 	CONST_STRPTR ethernet_alias = GetAlias(alias);
 	CONST_STRPTR gpio_alias = GetAlias("gpio");
 	if (ethernet_alias == NULL || gpio_alias == NULL)

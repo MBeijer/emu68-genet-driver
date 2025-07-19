@@ -16,10 +16,11 @@
 #endif
 
 #include <debug.h>
+#include <compat.h>
 #include <phy/phy.h>
 #include <phy/mii.h>
 #include <device.h>
-#include <compat.h>
+
 
 /**
  * wait_for_bit_x()	waits for bit set/cleared in register
