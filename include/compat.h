@@ -89,5 +89,12 @@ struct MinList {
    struct  MinNode *mlh_TailPred;
 };	/* longword aligned */
 
-#define NewMinList NewList
+void _NewMinList(APTR listPTR)
+{
+    struct MinList *lh = listPTR;
+    lh->lh_Head = (struct MinNode*)&(lh->lh_Tail);
+    lh->lh_Tail = NULL;
+    lh->lh_TailPred = (struct MinNode*)&(lh->lh_Head);
+}
+
 #endif
