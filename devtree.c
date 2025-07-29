@@ -168,7 +168,6 @@ static CONST_STRPTR GetAlias(const char *alias)
 int DevTreeParse(struct GenetUnit *unit)
 {
 	SysBase = unit->execBase;
-	struct Library *UtilityBase = unit->utilityBase;
 
 	DeviceTreeBase = OpenResource((CONST_STRPTR) "devicetree.resource");
 	if (!DeviceTreeBase)

@@ -71,8 +71,6 @@ static inline void out_le32(volatile ULONG *addr, ULONG val)
 #define clrsetbits(type, addr, clear, set) \
     out_##type((addr), (in_##type(addr) & ~(clear)) | (set))
 
-#endif
-
 #if INCLUDE_VERSION < 45
 /* minimal node -- no type checking possible */
 struct MinNode {
@@ -88,13 +86,14 @@ struct MinList {
    struct  MinNode *mlh_Tail;
    struct  MinNode *mlh_TailPred;
 };	/* longword aligned */
+#endif // INCLUDE_VERSION < 45
 
-void _NewMinList(APTR listPTR)
+inline void _NewMinList(APTR listPTR)
 {
-    struct MinList *lh = listPTR;
-    lh->lh_Head = (struct MinNode*)&(lh->lh_Tail);
-    lh->lh_Tail = NULL;
-    lh->lh_TailPred = (struct MinNode*)&(lh->lh_Head);
+    struct MinList *mlh = listPTR;
+    mlh->mlh_Head = (struct MinNode*)&(mlh->mlh_Tail);
+    mlh->mlh_Tail = NULL;
+    mlh->mlh_TailPred = (struct MinNode*)&(mlh->mlh_Head);
 }
 
-#endif
+#endif //_COMPAT_H

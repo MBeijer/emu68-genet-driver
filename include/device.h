@@ -14,6 +14,8 @@
 
 #include <phy/phy.h>
 #include <bcmgenet.h>
+#include <compat.h>
+
 #include <stdint.h>
 
 /*
