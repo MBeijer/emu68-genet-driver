@@ -12,8 +12,8 @@
 #include <exec/semaphores.h>
 #include <devices/sana2.h>
 
-#include <phy/phy.h>
-#include <bcmgenet.h>
+#include <genet/phy.h>
+#include <genet/bcmgenet.h>
 #include <runtime_config.h>
 
 #define LIB_MIN_VERSION 39 /* we use memory pools */
@@ -24,14 +24,8 @@
 #define ETH_FCS_LEN 4	  /* Octets in the FCS             			*/
 #define ETH_DATA_LEN 1500 /* Max. octets in payload					*/
 
-#define ARCH_DMA_MINALIGN 64 /* Minimum DMA alignment. That is in bytes. */
-#define ARCH_DMA_MINALIGN_MASK (ARCH_DMA_MINALIGN - 1)
-
 #define COMMAND_PROCESSED 1
 #define COMMAND_SCHEDULED 0
-
-#define ETIMEDOUT -1 // Used by PHY to report errors
-#define EAGAIN -2
 
 /* Generic TODOs
 use HW bcast/mcast flags
@@ -39,6 +33,7 @@ cleanup mcast handling
 packet stats from HW, custom command to expose more stats and tool to read
 type statistics
 PHY link state updates at runtime
+interrupts
 
 Long shot:
 - SANA-II updates to enable zero-copy DMA on TX and RX
@@ -110,7 +105,6 @@ struct bcmgenet_rx_ring
 {
 	struct enet_cb *rx_control_block; /* Rx ring buffer control block */
 	UWORD rx_cons_index;			  /* Rx last consumer index */
-	UBYTE read_ptr;					  /* Rx ring read pointer */
 	ULONG rx_max_coalesced_frames;
 	ULONG rx_coalesce_usecs;
 };

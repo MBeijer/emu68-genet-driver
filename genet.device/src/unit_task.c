@@ -9,12 +9,11 @@
 
 #include <dos/dos.h>
 
-#include <bcmgenet-regs.h>
+#include <genet/bcmgenet-regs.h>
 #include <compat.h>
 #include <device.h>
 #include <minlist.h>
 #include <debug.h>
-#include <settings.h>
 #include <runtime_config.h>
 
 struct Device *TimerBase = NULL;

@@ -26,11 +26,12 @@
 #include <limits.h>
 
 #include <debug.h>
-#include <phy/phy.h>
-#include <device.h>
 #include <compat.h>
-#include <unimac.h>
-#include <bcmgenet-regs.h>
+#include <device.h>
+
+#include <genet/phy.h>
+#include <genet/unimac.h>
+#include <genet/bcmgenet-regs.h>
 
 static void bcmgenet_umac_reset(struct GenetUnit *unit)
 {
@@ -125,7 +126,7 @@ int bcmgenet_gmac_eth_recv(struct GenetUnit *unit, UBYTE **packetp)
 	UWORD rx_prod_index = readl((ULONG)unit->genetBase + RDMA_PROD_INDEX) & DMA_P_INDEX_MASK;
 
 	if (rx_prod_index == unit->rx_ring.rx_cons_index)
-		return EAGAIN;
+		return -EAGAIN;
 
 	//TODO replace it with HW flags
 	if (rx_prod_index - unit->rx_ring.rx_cons_index > RX_DESCS - 1) {
@@ -238,7 +239,6 @@ static int bcmgenet_init_rx_ring(struct GenetUnit *unit)
 	ring->rx_cons_index = readl((ULONG)unit->genetBase + RDMA_PROD_INDEX) & DMA_P_INDEX_MASK;
 	writel(ring->rx_cons_index, (ULONG)unit->genetBase + RDMA_CONS_INDEX);
 	Kprintf("[genet] %s: rx_cons_index=%ld\n", __func__, unit->rx_ring.rx_cons_index);
-	ring->read_ptr = ring->rx_cons_index;
 
 	writel((RX_DESCS << DMA_RING_SIZE_SHIFT) | RX_BUF_LENGTH, unit->genetBase + RDMA_RING_REG_BASE + DMA_RING_BUF_SIZE);
 	writel((DMA_FC_THRESH_LO << DMA_XOFF_THRESHOLD_SHIFT) | DMA_FC_THRESH_HI, unit->genetBase + RDMA_XON_XOFF_THRESH);
@@ -507,8 +507,8 @@ int bcmgenet_gmac_eth_start(struct GenetUnit *unit)
 	}
 
 	/* These buffers are used for DMA transfers where buffers from IP stack cannot be used */
-	unit->rxbuffer = (UBYTE *)roundup(unit->rxbuffer_not_aligned, ARCH_DMA_MINALIGN);
-	unit->txbuffer = (UBYTE *)roundup(unit->txbuffer_not_aligned, ARCH_DMA_MINALIGN);
+	unit->rxbuffer = (UBYTE *)roundup((ULONG)unit->rxbuffer_not_aligned, ARCH_DMA_MINALIGN);
+	unit->txbuffer = (UBYTE *)roundup((ULONG)unit->txbuffer_not_aligned, ARCH_DMA_MINALIGN);
 
 	bcmgenet_umac_reset(unit);
 
