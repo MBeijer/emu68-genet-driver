@@ -83,18 +83,16 @@ int UnitOpen(struct GenetUnit *unit, LONG unitNumber, LONG flags, struct Opener 
 	unit->multicastCount = 0;
 
 	_NewMinList(&unit->openers);
-	if (opener != NULL)
-	{
-		AddTailMinList(&unit->openers, (struct MinNode *)opener);
-	}
 
 	int result = DevTreeParse(unit);
 	if (result != S2ERR_NO_ERROR)
 	{
 		Kprintf("[genet] %s: Failed to parse device tree: %ld\n", __func__, result);
+		DeletePool(unit->memoryPool);
+		unit->memoryPool = NULL;
 		return result;
 	}
-
+	
 	/* On first open, we initialize current MAC to 0 to indicate it was not set yet */
 	_memset(unit->currentMacAddress, 0, sizeof(unit->currentMacAddress));
 	result = UnitTaskStart(unit);
@@ -105,6 +103,12 @@ int UnitOpen(struct GenetUnit *unit, LONG unitNumber, LONG flags, struct Opener 
 		unit->memoryPool = NULL;
 		return result;
 	}
+
+	if (opener != NULL)
+	{
+		AddTailMinList(&unit->openers, (struct MinNode *)opener);
+	}
+
 	return S2ERR_NO_ERROR;
 }
 
@@ -118,7 +122,6 @@ int UnitConfigure(struct GenetUnit *unit)
 	if (result != S2ERR_NO_ERROR)
 	{
 		Kprintf("[genet] %s: Failed to probe UMAC: %ld\n", __func__, result);
-		bcmgenet_gmac_eth_stop(unit); // This may be needed to free PHY memory
 		return result;
 	}
 

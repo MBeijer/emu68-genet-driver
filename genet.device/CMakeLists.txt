@@ -19,12 +19,16 @@ add_executable(genet.device
     src/unit_io.c
     src/bcmgenet.c
     src/bcmgenet-tx.c
+    src/bcmgenet-irq.c
     src/phy.c
     src/phy_interface.c
     src/device_end.c
 )
 
-target_include_directories(genet.device PRIVATE include)
+target_include_directories(genet.device PRIVATE
+    include
+    "${CMAKE_SOURCE_DIR}/gic400.library/include"
+)
 target_link_libraries(genet.device common runtime-config)
 
 install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/genet.device DESTINATION .)

@@ -17,6 +17,7 @@
 
 #include <genet/bcmgenet.h>
 #include <genet/bcmgenet-regs.h>
+#include <genet/bcmgenet-irq.h>
 
 /* Combined address + length/status setter */
 static inline void dmadesc_set(APTR descriptor_address, APTR addr, ULONG val)
@@ -49,10 +50,13 @@ static inline struct IOSana2Req *bcmgenet_free_tx_cb(struct enet_cb *cb)
 }
 
 /* Unlocked version of the reclaim routine */
-void bcmgenet_tx_reclaim(struct GenetUnit *unit)
+unsigned int bcmgenet_tx_reclaim(struct GenetUnit *unit, unsigned int budget)
 {
 	struct bcmgenet_tx_ring *ring = &unit->tx_ring;
-	ObtainSemaphore(&ring->tx_ring_sem);
+
+	if (budget == 0U)
+		return 0;
+
 	/* Compute how many buffers are transmitted since last xmit call */
 	UWORD tx_cons_index = readl((ULONG)unit->genetBase + TDMA_CONS_INDEX) & DMA_C_INDEX_MASK;
 	UWORD txbds_ready = (tx_cons_index - ring->tx_cons_index) & DMA_C_INDEX_MASK;
@@ -60,10 +64,13 @@ void bcmgenet_tx_reclaim(struct GenetUnit *unit)
 	/* Reclaim transmitted buffers */
 	UWORD txbds_processed = 0;
 	ULONG bytes_compl = 0;
-	UWORD pkts_compl = 0;
-	while (txbds_processed < txbds_ready)
+	unsigned int pkts_compl = 0;
+	while (txbds_processed < txbds_ready && pkts_compl < budget)
 	{
 		struct IOSana2Req *io = bcmgenet_free_tx_cb(&ring->tx_control_block[ring->clean_ptr]);
+		++txbds_processed;
+		++ring->clean_ptr;
+
 		if (io)
 		{
 			pkts_compl++;
@@ -71,21 +78,14 @@ void bcmgenet_tx_reclaim(struct GenetUnit *unit)
 			KprintfH("[genet] %s: Reclaimed tx buffer 0x%lx, length %ld\n", __func__, io, io->ios2_DataLength);
 			ReplyMsg((struct Message *)io);
 		}
-
-		++txbds_processed;
-		++ring->clean_ptr;
 	}
 
-	ring->free_bds += txbds_processed;
-	ring->tx_cons_index = tx_cons_index;
+	ring->tx_cons_index = (ring->tx_cons_index + txbds_processed) & DMA_C_INDEX_MASK;
 
-	/* small burst of fast polls */
-	unit->tx_watchdog_fast_ticks = (ring->free_bds < TX_DESCS) ? genetConfig.tx_pending_fast_ticks : 0;
-
-	unit->stats.PacketsSent += pkts_compl;
 	unit->internalStats.tx_packets += pkts_compl;
 	unit->internalStats.tx_bytes += bytes_compl;
-	ReleaseSemaphore(&ring->tx_ring_sem);
+
+	return pkts_compl;
 }
 
 int bcmgenet_xmit(struct IOSana2Req *io, struct GenetUnit *unit)
@@ -95,11 +95,11 @@ int bcmgenet_xmit(struct IOSana2Req *io, struct GenetUnit *unit)
 	struct bcmgenet_tx_ring *ring = &unit->tx_ring;
 	ObtainSemaphore(&ring->tx_ring_sem);
 
-	KprintfH("[genet] %s: pre: tx_cons_index %ld, tx_prod_index %ld, write_ptr %ld, clean_ptr %ld\n", __func__,
-			 ring->tx_cons_index, ring->tx_prod_index, ring->write_ptr, ring->clean_ptr);
+	KprintfH("[genet] %s: pre: tx_prod_index %ld, write_ptr %ld\n", __func__, ring->tx_prod_index, ring->write_ptr);
 
+	UWORD free_bds = TX_DESCS - ((ring->tx_prod_index - ring->tx_cons_index) & DMA_P_INDEX_MASK);
 	UBYTE bds_required = (io->ios2_Req.io_Flags & SANA2IOF_RAW) ? 1 : 2;
-	if (unlikely(ring->free_bds <= bds_required))
+	if (unlikely(free_bds <= bds_required))
 	{
 		KprintfH("[genet] %s: Not enough free BDs\n", __func__);
 		goto ret_error;
@@ -145,8 +145,7 @@ int bcmgenet_xmit(struct IOSana2Req *io, struct GenetUnit *unit)
 		ULONG len = ETH_HLEN;
 		CachePreDMA(tx_cb_ptr->internal_buffer, &len, DMA_ReadFromRAM);
 
-		/* Decrement total BD count and advance our write pointer */
-		ring->free_bds--;
+		/* Advance our write pointer */
 		ring->tx_prod_index++;
 		ring->tx_prod_index &= DMA_P_INDEX_MASK;
 		KprintfH("[genet] %s: ETH header sent type: 0x%lx dst addr: %02lx:%02lx:%02lx:%02lx:%02lx:%02lx\n", __func__, io->ios2_PacketType,
@@ -201,16 +200,12 @@ int bcmgenet_xmit(struct IOSana2Req *io, struct GenetUnit *unit)
 
 	CachePreDMA(tx_cb_ptr->data_buffer, &io->ios2_DataLength, DMA_ReadFromRAM);
 
-	/* Decrement total BD count and advance our write pointer */
-	ring->free_bds--;
+	/* Advance our write pointer */
 	ring->tx_prod_index++;
 	ring->tx_prod_index &= DMA_P_INDEX_MASK;
 
 	writel(ring->tx_prod_index, (ULONG)unit->genetBase + TDMA_PROD_INDEX);
-	KprintfH("[genet] %s: Transmitting packet, tx_prod_index %ld, free_bds %ld\n",
-			 __func__, ring->tx_prod_index, ring->free_bds);
-
-	unit->tx_watchdog_fast_ticks = genetConfig.tx_pending_fast_ticks; /* ensure a few fast polls */
+	KprintfH("[genet] %s: Transmitting packet, tx_prod_index %ld\n", __func__, ring->tx_prod_index);
 
 	ReleaseSemaphore(&ring->tx_ring_sem);
 	return COMMAND_SCHEDULED;
