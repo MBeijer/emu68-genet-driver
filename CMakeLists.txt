@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.14.0)
-project(genet-driver VERSION 1.2.0)
+project(emu68-genet-driver VERSION 1.4)
+
 
 # CPM BEGIN
 set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
@@ -21,33 +22,14 @@ endif()
 
 get_verstring(VERSTRING)
 
-add_link_options(-m68040 -mhard-float -s -nostdlib -nostartfiles -lamiga)
-add_compile_definitions(PRIVATE VERSION_STRING="${VERSTRING}")
+# Set default install prefix to ./install subdirectory
+if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+    set(CMAKE_INSTALL_PREFIX "${CMAKE_SOURCE_DIR}/install" CACHE PATH "Install path" FORCE)
+endif()
 
-enable_language(ASM_VASM)
+add_subdirectory(common)
+add_subdirectory(runtime-config)
+add_subdirectory(genet.device)
 
-add_executable(genet.device
-    device.c
-    device_beginio.c
-    device_abortio.c
-    devtree.c
-    unit.c
-    unit_task.c
-    unit_commands.c
-    unit_commands_mcast.c
-    unit_io.c
-    genet/bcmgenet.c
-    genet/bcmgenet-tx.c
-    genet/bcm_gpio.c
-    genet/phy.c
-    genet/phy_interface.c
-    device_end.c
-)
-
-target_link_libraries(genet.device devicetree)
-target_include_directories(genet.device PRIVATE "${PROJECT_SOURCE_DIR}/include")
-target_compile_options(genet.device PUBLIC $<$<COMPILE_LANGUAGE:C>:-m68040 -mhard-float -O2 -MMD -MP -Wall>)
-target_compile_options(genet.device PRIVATE $<$<COMPILE_LANGUAGE:ASM_VASM>:-m68040 -quiet -I${CMAKE_SYSROOT}/m68k-amigaos/ndk-include>)
-
-install(PROGRAMS "${CMAKE_CURRENT_BINARY_DIR}/genet.device" DESTINATION "${CONTRIB_PREFIX}genet-driver/")
-install(FILES "README.md" DESTINATION "${CONTRIB_PREFIX}genet-driver/")
+# install(FILES ${CMAKE_SOURCE_DIR}/Install DESTINATION .)
+# install(FILES ${CMAKE_SOURCE_DIR}/Install.info DESTINATION .)
