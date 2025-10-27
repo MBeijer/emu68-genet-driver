@@ -7,6 +7,8 @@
 #define __attribute__(x)
 #endif
 
+#include <stdint.h>
+
 #include <exec/devices.h>
 #include <exec/types.h>
 #include <exec/semaphores.h>

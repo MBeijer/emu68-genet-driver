@@ -95,7 +95,7 @@ static const APTR funcTable[] = {
     (APTR)-1};
 
 struct ExecBase *SysBase;
-struct Library *UtilityBase = NULL;
+struct UtilityBase *UtilityBase = NULL;
 
 APTR initFunction(struct GenetDevice *base asm("d0"), ULONG segList asm("a0"), struct GenetDevice *dev_base asm("a6") __attribute__((unused)))
 {
