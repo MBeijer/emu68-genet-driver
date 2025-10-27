@@ -3,6 +3,10 @@ project(genet.device VERSION ${CMAKE_PROJECT_VERSION})
 
 get_verstring(VERSTRING)
 
+if(NOT TARGET devicetree)
+    CPMGetPackage(devicetree.resource)
+endif()
+
 add_executable(genet.device
     src/device.c
     src/device_beginio.c
@@ -21,7 +25,8 @@ add_executable(genet.device
 )
 
 target_compile_definitions(genet.device PRIVATE DEVICE_IDSTRING="${VERSTRING}" DEVICE_VERSION=${PROJECT_VERSION_MAJOR} DEVICE_REVISION=${PROJECT_VERSION_MINOR} DEVICE_NAME="${PROJECT_NAME}")
-target_link_libraries(genet.device common runtime-config)
+add_dependencies(genet.device devicetree)
+target_link_libraries(genet.device devicetree runtime-config common)
 target_link_options(genet.device PRIVATE -ffreestanding -nostdlib -nostartfiles -s -Wl,-e,_doNotExecute)
 target_include_directories(genet.device PRIVATE "${PROJECT_SOURCE_DIR}/include")
 target_compile_options(genet.device PUBLIC $<$<COMPILE_LANGUAGE:C>:-Os -m68040 -Wall -Wextra -DDEBUG -fomit-frame-pointer>)
