@@ -1,4 +1,5 @@
 build/
 install/
+external/
 genet-linux/
 .vscode/
