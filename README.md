@@ -6,6 +6,7 @@ The driver is based on [Das U-Boot](https://source.denx.de/u-boot/u-boot) bcmgen
 **Beware:**
 - The upcoming changes in Emu68 1.1 are likely not compatible with the interrupts implementation in this driver, as the new Arm side handler reads IAR and writes EORI registers.
 - v2.0 **requires** gic400.library and Emu68 build with PR#306 - see below for details
+- The available genet.prefs settings list has changed due to interrupts use
 
 ## Known bugs
 
@@ -19,6 +20,7 @@ The driver is based on [Das U-Boot](https://source.denx.de/u-boot/u-boot) bcmgen
 - No more pooling: interrupts used via the GIC-400 controller
 - Confg reload does not require flush of the driver - just bring the interface down and up
 - The controller's base address is translated through the /scb branch of the device tree as per spec. This requires Emu68 PR#306, as without it doesn't expose correct /scb memory mappings.
+- genet.prefs settings added (interrupt coalescing related) and removed (pooling related)
 - Bugfixes
 
 ## Features
