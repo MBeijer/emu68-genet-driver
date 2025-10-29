@@ -69,7 +69,7 @@ static struct Resident const genetDeviceResident __attribute__((used)) = {
     can be sizeof(struct Library), sizeof(struct Device) or any size necessary to
     store user defined object extending the Device structure.
 */
-APTR initFunction(struct GenetDevice *base asm("d0"), ULONG segList asm("a0"), struct GenetDevice *dev_base asm("a6"));
+APTR initFunction(struct GenetDevice *base asm("d0"), ULONG segList asm("a0"), struct ExecBase *_SysBase asm("a6"));
 
 static const APTR funcTable[];
 static const APTR initTable[4] = {
@@ -96,25 +96,29 @@ static const APTR funcTable[] = {
 
 struct ExecBase *SysBase;
 struct UtilityBase *UtilityBase = NULL;
+struct Library *GIC400_Base = NULL;
 
-APTR initFunction(struct GenetDevice *base asm("d0"), ULONG segList asm("a0"), struct GenetDevice *dev_base asm("a6") __attribute__((unused)))
+APTR initFunction(struct GenetDevice *base asm("d0"), ULONG segList asm("a0"), struct ExecBase *_SysBase asm("a6") __attribute__((unused)))
 {
-    SysBase = *((struct ExecBase **)4UL);
+    SysBase = _SysBase;
     Kprintf("[genet] %s: Initializing device\n", __func__);
     base->segList = segList;
     base->device.dd_Library.lib_Revision = DEVICE_REVISION;
     base->unit = NULL;
 
-    UtilityBase = OpenLibrary((CONST_STRPTR)"utility.library", LIB_MIN_VERSION);
+    UtilityBase = OpenLibrary((CONST_STRPTR) "utility.library", LIB_MIN_VERSION);
     if (UtilityBase == NULL)
     {
         Kprintf("[genet] %s: Failed to open utility.library\n", __func__);
-        expungeLib(base);
         return NULL;
     }
 
-    LoadGenetRuntimeConfig();
-    DumpGenetRuntimeConfig();
+    GIC400_Base = OpenLibrary((CONST_STRPTR) "gic400.library", 0);
+    if (GIC400_Base == NULL)
+    {
+        Kprintf("[genet] %s: Failed to open gic400.library\n", __func__);
+        return NULL;
+    }
 
     return base;
 }
@@ -213,6 +217,13 @@ void openLib(struct IOSana2Req *io asm("a1"), LONG unitNumber asm("d0"),
         return;
     }
 
+    if (base->unit->unit.unit_OpenCnt == 0)
+    {
+        /* We're reloading configuration only if the device was previously not in use */
+        LoadGenetRuntimeConfig();
+        DumpGenetRuntimeConfig();
+    }
+
     struct Opener *opener = NULL;
     if (io->ios2_Req.io_Message.mn_Length >= sizeof(struct IOSana2Req))
     {
@@ -294,7 +305,7 @@ ULONG expungeLib(struct GenetDevice *base asm("a6"))
     {
         Kprintf("[genet] %s: Device is still open, cannot expunge\n", __func__);
         base->device.dd_Library.lib_Flags |= LIBF_DELEXP;
-        return 0;
+        return NULL;
     }
     else
     {
@@ -302,6 +313,12 @@ ULONG expungeLib(struct GenetDevice *base asm("a6"))
         {
             CloseLibrary(UtilityBase);
             UtilityBase = NULL;
+        }
+
+        if (GIC400_Base != NULL)
+        {
+            CloseLibrary(GIC400_Base);
+            GIC400_Base = NULL;
         }
 
         ULONG segList = base->segList;

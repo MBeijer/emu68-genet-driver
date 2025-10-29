@@ -62,10 +62,10 @@ struct Opener
 	struct MinList readQueue;
 	struct MinList orphanQueue;
 	struct MinList eventQueue;
-	
+
 	/* Optimized queues for common packet types */
-	struct MinList ipv4Queue;  /* For 0x0800 */
-	struct MinList arpQueue;   /* For 0x0806 */
+	struct MinList ipv4Queue; /* For 0x0800 */
+	struct MinList arpQueue;  /* For 0x0806 */
 
 	struct SignalSemaphore openerSemaphore;
 
@@ -96,7 +96,6 @@ struct bcmgenet_tx_ring
 	struct enet_cb *tx_control_block; /* tx ring buffer control block*/
 	UBYTE clean_ptr;				  /* Tx ring clean pointer */
 	UWORD tx_cons_index;			  /* last consumer index of each ring*/
-	UWORD free_bds;					  /* # of free bds for each ring */
 	UBYTE write_ptr;				  /* Tx ring write pointer SW copy */
 	UWORD tx_prod_index;			  /* Tx ring producer index SW copy */
 
@@ -107,6 +106,7 @@ struct bcmgenet_rx_ring
 {
 	struct enet_cb *rx_control_block; /* Rx ring buffer control block */
 	UWORD rx_cons_index;			  /* Rx last consumer index */
+	UWORD old_discards;
 	ULONG rx_max_coalesced_frames;
 	ULONG rx_coalesce_usecs;
 };
@@ -121,21 +121,25 @@ struct enet_cb
 
 struct internal_stats
 {
-	ULONG rx_packets;
-	ULONG rx_bytes;
-	ULONG rx_dropped;
-	ULONG rx_arp_ip_dropped;
-	ULONG rx_overruns;
-	// ULONG rx_crc_errors;
-	// ULONG rx_over_errors;
-	// ULONG rx_frame_errors;
-	// ULONG rx_length_errors;
+	ULONG rx_packets;		 // Sana2 PacketsReceived
+	ULONG rx_bytes;			 // total bytes received
+	ULONG rx_dropped;		 // Sana2 UnknownTypesReceived
+	ULONG rx_arp_ip_dropped; // included in rx_dropped
+	ULONG rx_overruns;		 // Sana2 Overruns
+	ULONG rx_other_errors;
+	ULONG rx_crc_errors;
+	ULONG rx_over_errors;
+	ULONG rx_frame_errors;
+	ULONG rx_length_errors;
+	ULONG rx_fragmented_errors;
 
-	ULONG tx_packets;
-	ULONG tx_bytes;
-	ULONG tx_dma;
+	ULONG tx_packets; // Sana2 PacketsSent
+	ULONG tx_bytes;	  // total bytes transmitted
+	ULONG tx_dma;	  // tx_dma + tx_copy = tx_packets
 	ULONG tx_copy;
-	ULONG tx_dropped;
+	ULONG tx_dropped; // Sana2 Overruns
+
+	TimeVal_Type last_start;
 };
 
 struct GenetUnit
@@ -151,7 +155,6 @@ struct GenetUnit
 	/* unit/task state */
 	UnitState state;
 	struct Task *task;
-	struct Sana2DeviceStats stats;
 	struct internal_stats internalStats;
 	struct MinList openers;
 	struct MinList multicastRanges;
@@ -166,6 +169,12 @@ struct GenetUnit
 	const UBYTE *localMacAddress;
 	APTR genetBase;
 	APTR gpioBase;
+
+	/* Interrupt config and status */
+	ULONG irq0_number, irq1_number; /* IRQ numbers from Device Tree */
+	ULONG irq0_status;				/* status bits of irq0*/
+	BYTE irq0_signal;				/* signals used to wake bottom-half */
+	struct Interrupt irq0_isr;
 
 	/* PHY */
 	phy_interface_t phy_interface;
@@ -182,15 +191,14 @@ struct GenetUnit
 	struct bcmgenet_tx_ring tx_ring;
 	UBYTE *txbuffer_not_aligned;
 	UBYTE *txbuffer;
-
-	UWORD tx_watchdog_fast_ticks;/* remaining fast polls while data on TX ring */
 };
 
 /* Opener management commands */
 #define OPENER_CMD_ADD 1
 #define OPENER_CMD_REM 2
 
-struct OpenerControlMsg {
+struct OpenerControlMsg
+{
 	struct Message msg;
 	UWORD command; /* OPENER_CMD_* */
 	struct Opener *opener;
@@ -216,21 +224,21 @@ int UnitOnline(struct GenetUnit *unit);
 void UnitOffline(struct GenetUnit *unit);
 int UnitClose(struct GenetUnit *unit, struct Opener *opener);
 
-BOOL ReceiveFrame(struct GenetUnit *unit, UBYTE *packet, ULONG packetLength);
+BOOL ReceiveFrame(struct GenetUnit *unit, UBYTE *packet, ULONG packetLength, ULONG dma_flags);
 void ProcessCommand(struct IOSana2Req *io);
 
 /* Inline function for fast packet type queue lookup */
-static inline struct MinList* GetPacketTypeQueue(struct Opener *opener, UWORD packetType)
+static inline struct MinList *GetPacketTypeQueue(struct Opener *opener, UWORD packetType)
 {
-    switch (packetType)
-    {
-        case 0x0800: /* IPv4 */
-            return &opener->ipv4Queue;
-        case 0x0806: /* ARP */
-            return &opener->arpQueue;
-        default:
-            return &opener->readQueue; /* Fallback to legacy port */
-    }
+	switch (packetType)
+	{
+	case 0x0800: /* IPv4 */
+		return &opener->ipv4Queue;
+	case 0x0806: /* ARP */
+		return &opener->arpQueue;
+	default:
+		return &opener->readQueue; /* Fallback to legacy port */
+	}
 }
 
 int Do_S2_ADDMULTICASTADDRESSES(struct IOSana2Req *io);
