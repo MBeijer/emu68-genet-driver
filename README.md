@@ -18,6 +18,7 @@ The driver is based on [Das U-Boot](https://source.denx.de/u-boot/u-boot) bcmgen
 2.0:
 - No more pooling: interrupts used via the GIC-400 controller
 - Confg reload does not require flush of the driver - just bring the interface down and up
+- The controller's base address is translated through the /scb branch of the device tree as per spec. This requires Emu68 PR#306, as without it doesn't expose correct /scb memory mappings.
 - Bugfixes
 
 ## Features
